@@ -12,6 +12,47 @@ def parse_int(n):
     except ValueError:
         return float("nan")
 
+def parse_float(n):
+    """
+    Securely converts a non-numeric value to float.
+    """
+    try:
+        return float(n)
+    except ValueError:
+        return float("nan")
+
+# Data validations
+def validate_data(age, investment_amount, intent_request):
+    # Validate that the user is between between the age of 0 and 64
+    if age is not None:
+        age = parse_float(
+            age
+            )
+        if age > 65:
+            return build_validation_result(
+                    False,
+                    "age",
+                    "You should be younger than 65 years old to use this service, "
+                    "can you please enter an age be between 0 and 64?",
+                    )
+        if age < 0:
+            return build_validation_result(
+                    False,
+                    "age",
+                    "Your age cannot be a negative number, "
+                    "please re-enter your age as a positive value.",
+                    )
+    if investment_amount is not None:
+        investment_amount = parse_float(investment_amount)  # Since parameters are strings it's important to cast values
+        if investment_amount < 5000:
+            return build_validation_result(
+                    False,
+                    "investmentAmount",
+                    "The amount invested should be greater than $5000, "
+                    "please enter a number larger than $5000.",
+                    )
+    return build_validation_result(True, None, None)
+
 
 def build_validation_result(is_valid, violated_slot, message_content):
     """
@@ -80,6 +121,7 @@ def close(session_attributes, fulfillment_state, message):
     return response
 
 
+
 ### Intents Handlers ###
 def recommend_portfolio(intent_request):
     """
@@ -96,8 +138,22 @@ def recommend_portfolio(intent_request):
         # Perform basic validation on the supplied input slots.
         # Use the elicitSlot dialog action to re-prompt
         # for the first violation detected.
-
+        slots = get_slots(intent_request)
         ### YOUR DATA VALIDATION CODE STARTS HERE ###
+        validation_result = validate_data(age, investment_amount, intent_request)
+        # If the data provided by the user is not valid,
+        # the elicitSlot dialog action is used to re-prompt for the first violation detected.
+        if not validation_result["isValid"]:
+            slots[validation_result["violatedSlot"]] = None  # Cleans invalid slot
+
+            # Returns an elicitSlot dialog to request new data for the invalid slot
+            return elicit_slot(
+                intent_request["sessionAttributes"],
+                intent_request["currentIntent"]["name"],
+                slots,
+                validation_result["violatedSlot"],
+                validation_result["message"],
+            )
 
         ### YOUR DATA VALIDATION CODE ENDS HERE ###
 
@@ -109,7 +165,18 @@ def recommend_portfolio(intent_request):
     # Get the initial investment recommendation
 
     ### YOUR FINAL INVESTMENT RECOMMENDATION CODE STARTS HERE ###
-
+    if risk_level == "None":
+        initial_recommendation = "100% bonds (AGG), 0% equities (SPY)"
+    elif risk_level == "Very Low":
+        initial_recommendation = "80% bonds (AGG), 20% equities (SPY)"
+    elif risk_level == "Low":
+        initial_recommendation = "60% bonds (AGG), 40% equities (SPY)"
+    elif risk_level == "Medium":
+        initial_recommendation = "40% bonds (AGG), 60% equities (SPY)"
+    elif risk_level == "High":
+        initial_recommendation = "20% bonds (AGG), 80% equities (SPY)"
+    elif risk_level == "Very High":
+        initial_recommendation = "0% bonds (AGG), 100% equities (SPY)"
     ### YOUR FINAL INVESTMENT RECOMMENDATION CODE ENDS HERE ###
 
     # Return a message with the initial recommendation based on the risk level.
